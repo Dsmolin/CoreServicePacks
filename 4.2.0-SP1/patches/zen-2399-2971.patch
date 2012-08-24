@@ -1,0 +1,207 @@
+--- /opt/zenoss/Products/ZenWidgets/skins/zenui/javascript/geomap.js	2012-08-02 02:24:40.000000000 +0400
++++ geomap2.txt	2012-08-24 04:36:32.599841709 +0400
+@@ -16,6 +16,9 @@
+         var markers = [];
+         var polylineregistry = [];
+         var dialog = null;
++        var nodedata = null;
++        var linkdata = null;
++        var errorCount = 0;
+     
+     /* PUBLICIZE */
+     ZenGeoMapPortlet.prototype = {
+@@ -55,9 +58,15 @@
+                 'linkdata':[]
+             };           
+             var myd = loadJSONDoc('getChildGeomapData');
+-            myd.addCallback(function(x){results['nodedata']=x});
++            myd.addCallback(function(x){
++                results['nodedata']=x; 
++                nodedata = results.nodedata;
++            });
+             var myd2 = loadJSONDoc('getChildLinks');
+-            myd2.addCallback(function(x){results['linkdata']=x;});
++            myd2.addCallback(function(x){
++                results['linkdata']=x;
++                linkdata = results.linkdata;                
++            });
+             var bigd = new DeferredList([myd, myd2], false, false, true);
+             bigd.addCallback(method(this, function(){
+                 if(!_utils.checkMemCache()){// this is only used for refresh checking
+@@ -77,7 +86,7 @@
+     var _overlay = {
+         addMarkers: function() {
+             // check server cache to see if we need to geocode or not            
+-            if(geocodecache && geocodecache.nodes.length > 0){
++            if(geocodecache && geocodecache.nodes.length > 0){            
+                 _overlay.constructMarker(geocodecache.nodes[index], false);                
+             }else{
+                 if(!nodedata[index][0]) return false; // no addresses so nevermind
+@@ -90,13 +99,49 @@
+                         content += '<img src="http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif" />';
+                         dialog.innerHTML = content;                 
+                         _overlay.constructMarker(results, true);
++                    }else if(status === google.maps.GeocoderStatus.OVER_QUERY_LIMIT) { 
++                        /*  try the address a few times after some delay to make sure it really is a query limit
++                            problem and not just erroring becuase we hit it too many times a second. We can get
++                            this error when the user has reached their daily limit for their IP as well.
++                        */
++                        errorCount++; 
++                        if(errorCount >= 5){
++                            _utils.statusDialog("QUERY_LIMIT error. If this is a free account, you may have reached your daily limit. Please try again later.");
++                            return false;
++                        }
++                        setTimeout(function(){_overlay.addMarkers()}, 2000);
++                    }else if(status === google.maps.GeocoderStatus.ZERO_RESULTS){
++                        try{var latlngStr = nodedata[index][0].split(",",2);}catch(e){
++                            _utils.statusDialog("There was a problem with the address entered. Please check it and try again");
++                            dialog.style.display = 'block';
++                            dialog.innerHTML = "";                            
++                        }
++                        var lat = parseFloat(latlngStr[0]);
++                        var lng = parseFloat(latlngStr[1]);
++                        var latlng = new google.maps.LatLng(lat, lng); 
++                        geocoder.geocode({'latLng': latlng}, function(results, status) {
++                          if (status == google.maps.GeocoderStatus.OK) {
++                            if(results[1]){
++                                nodes.push(results[1]);
++                                dialog.style.display = 'block';
++                                var content = "Geocoding " + (index+1) + " of " + nodedata.length + " addresses, please wait...<br><br>";
++                                content += '<img src="http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif" />';
++                                dialog.innerHTML = content;                 
++                                _overlay.constructMarker(results[1], true);                          
++                            }
++                          }else{
++                            _utils.statusDialog("We tried the address but couldn't find anything. Maybe try a different address?");
++                            dialog.style.display = 'block';
++                            dialog.innerHTML = "";
++                          }
++                        });                       
+                     }else{
+                         _utils.statusDialog(status);
+                         dialog.style.display = 'block';
+                         dialog.innerHTML = "";                     
+                     }
+                 });  
+-            }
++           }
+            
+         }, 
+         addPolyline: function() {
+@@ -136,6 +181,19 @@
+                                 _utils.statusDialog(status);
+                             }
+                         });                 
++                    }else if(status === google.maps.GeocoderStatus.ZERO_RESULTS){
++                            _utils.statusDialog("There was a problem with one of the connecting addresses, moving on...");                         
++                    }else if(status === google.maps.GeocoderStatus.OVER_QUERY_LIMIT) {    
++                        /*  try the address a few times after some delay to make sure it really is a query limit
++                            problem and not just erroring becuase we hit it too many times a second. We can get
++                            this error when the user has reached their daily limit for their IP as well.
++                        */                    
++                        errorCount++;
++                        if(errorCount >= 5){
++                            _utils.statusDialog("QUERY_LIMIT error. If this is a free account, you may have reached your daily limit. Please try again later."); 
++                            return false;
++                        }                    
++                        setTimeout(function(){_overlay.addPolyline()}, 2000);
+                     }else{
+                         _utils.statusDialog(status);
+                     }
+@@ -199,7 +257,7 @@
+                 // done with that marker, but wait, there's more...
+                 // need a delay here to keep google from saying: OVER_QUERY_LIMIT
+                 // due to having too many queries per second
+-                setTimeout(function(){_overlay.addMarkers()}, 200);
++                setTimeout(function(){_overlay.addMarkers()}, 400);
+             }
+                         
+         },
+@@ -229,15 +287,12 @@
+                 return;
+             }else{
+                 // done with that line, but wait, there's more...
+-                setTimeout(function(){_overlay.addPolyline()}, 200);                           
++                setTimeout(function(){_overlay.addPolyline()}, 400);                           
+             }
+         },
+         doDraw: function(results) {      
+-            nodedata = results.nodedata;
+-            linkdata = results.linkdata;
+             // set cache for refresh
+             gcache = nodedata;
+-            
+             if(geocodecache){
+                try{
+                     geocodecache = YAHOO.lang.JSON.parse(geocodecache);
+@@ -245,13 +300,10 @@
+                     geocodecache = null;
+                };
+             }
+-            // remove lines:
+-            forEach(polylineregistry, function(o){
+-                gmap.remove_overlay(o);
+-            });            
+             _overlay.addMarkers();
+         }
+     }
++        
+     /* UTILS AND HELPERS */
+     var _utils = {  
+         saveCache: function() {
+@@ -271,32 +323,44 @@
+             // check if there is a cache, return false if not = newmap
+             // if there IS a cache then this is a refresh, check diff
+             if(gcache.length > 0){ // have cache
+-                // make sure there's no new nodes or color changes              
++                // make sure there's no new/deleted nodes or color changes              
+                 var nodeMap = {};
+                 var i = null;
+                 for (i = 0; i < gcache.length; i++) {
+                     nodeMap[gcache[i][2]] = gcache[i]; // UID based keymap
+                 }    
+-
+-                for (i = 0;i < nodedata.length; i++){
++                for (i = 0;nodedata.length > i; i++){
+                     if(nodeMap[nodedata[i][2]]){
+-                        //check colors on the existing nodes for changes
+-                       if(nodeMap[nodedata[i][2]][1] != nodedata[i][1]){
++                        //check colors on the existing nodes for changes, or added/removed nodes
++                       if(nodeMap[nodedata[i][2]][1] != nodedata[i][1] || gcache.length != nodedata.length){
+                             geocodecache = null;
+-                            return false;// status (color) changed, refresh                        
++                            gcache = [];
++                            _utils.wipeMarkers();
++                            return false;                       
+                         }
+-                    }else{
+-                        // this is a new node
+-                        geocodecache = null;
+-                        return false;                    
+                     }
+-                }
++                }               
+                 return true;
+             }else{
++                // this is a first time load since there's no gcache, so need to 
++                // always geocode since the geocodecache can change between loads
++                // without any way for this session to be aware of this change.
++                geocodecache = null;
+                 return false; // new map
+             }
+        
+         },
++        wipeMarkers: function(){
++            var i;
++            for(i = 0; i < markers.length; i++){
++                markers[i].setMap(null);
++            }    
++            for(i = 0; i < polylineregistry.length; i++){
++                polylineregistry[i].setMap(null);
++            }
++            polylineregistry = [];            
++            markers = [];
++        },
+         hrefize: function(h){
+             return h.replace(/location.href/g, 'self.parent.location.href');
+         },
