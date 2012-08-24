@@ -1,0 +1,67 @@
+--- /opt/zenoss/ZenPacks/ZenPacks.zenoss.PySamba-1.0.0-py2.7-linux-x86_64.egg/ZenPacks/zenoss/PySamba/lib/pysamba/wbem/wbem.py	2012-08-24 04:15:24.890871493 +0400
++++ wbem.py	2012-08-24 19:56:23.295895344 +0400
+@@ -74,7 +74,7 @@
+         ('count', uint32_t),
+         ('item', POINTER(int16_t))
+         ]
+-class uarr_uint16(Structure):
++class arr_uint16(Structure):
+     _fields_= [
+         ('count', uint32_t),
+         ('item', POINTER(uint16_t))
+@@ -95,22 +95,12 @@
+         ('count', uint32_t),
+         ('item', POINTER(dlong_t))
+         ]
+-class arr_uint32(Structure):
+-    _fields_= [
+-        ('count', uint32_t),
+-        ('item', POINTER(uint32_t))
+-        ]
+ udlong_t = uint64_t
+ class arr_udlong(Structure):
+     _fields_= [
+         ('count', uint32_t),
+         ('item', POINTER(udlong_t))
+         ]
+-class arr_uint16(Structure):
+-    _fields_= [
+-        ('count', uint32_t),
+-        ('item', POINTER(uint16_t))
+-        ]
+ class arr_CIMSTRING(Structure):
+     _fields_= [
+         ('count', uint32_t),
+@@ -156,8 +146,13 @@
+         ('a_object', POINTER(arr_WbemClassObject)), # [relative,case(CIM_ARR_OBJECT)]
+         ]
+ 
+-
+-class WbemQualifier(Structure): pass
++class WbemQualifier(Structure):
++    _fields_ = [
++        ('name', CIMSTRING),
++        ('flavors', uint8_t),
++        ('cimtype', uint32_t),
++        ('value', CIMVAR),
++        ]
+ 
+ class WbemQualifiers(Structure):
+     _fields_ = [
+@@ -292,6 +287,7 @@
+ library.IWbemServices_ExecQuery_send_f.restype = POINTER(composite_context)
+ library.IWbemServices_ExecQuery_send_f.argtypes = [POINTER(IWbemServices), c_void_p, BSTR, BSTR, c_int32, POINTER(IWbemContext)]
+ library.IWbemServices_ExecQuery_send_f = logFuncCall(library.IWbemServices_ExecQuery_send_f)
++library.IWbemServices_ExecQuery.restype = WERROR
+ library.IWbemServices_ExecNotificationQuery_send_f.restype = POINTER(composite_context)
+ library.IWbemServices_ExecNotificationQuery_send_f.argtypes = [POINTER(IWbemServices), c_void_p, BSTR, BSTR, c_int32, POINTER(IWbemContext)]
+ library.IWbemServices_ExecNotificationQuery_send_f = logFuncCall(library.IWbemServices_ExecNotificationQuery_send_f)
+@@ -304,3 +300,8 @@
+ library.IUnknown_Release_send_f.restype = POINTER(composite_context)
+ library.IUnknown_Release_send_f.argtypes = [POINTER(IUnknown), c_void_p]
+ library.IUnknown_Release_send_f = logFuncCall(library.IUnknown_Release_send_f)
++library.IUnknown_Release.restype = WERROR
++
++library.dcom_client_init.restype = c_void_p
++library.dcom_client_init.argtypes = [POINTER(com_context), c_void_p]
++library.com_init_ctx.restype = WERROR

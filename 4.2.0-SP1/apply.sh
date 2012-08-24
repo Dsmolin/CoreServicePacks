@@ -24,16 +24,37 @@ BACKUPDIR=$ZENHOME/ServicePacks/$SP
 install -d $BACKUPDIR || die "Could not create backup directory $BACKUPDIR. Aborting."
 export SIMPLE_BACKUP_SUFFIX=""
 
+real_apply=""
+skip_apply=""
 patch_apply() {
 	local errval=$1
 	shift
 	local fail=""
-	extra_args="$@"
-	for x in `cat patches/series`; do 
+	local optional
+	if [ "$1" = "dry-run" ]; then
+		extra_args="--dry-run"
+		my_apply=`cat patches/series`
+	else
+		my_apply="$real_apply"
+	fi
+	for x in $my_apply; do 
+		optional=no
+		# patches with "opt-" prefix are optional -- someone may not have core ZenPacks installed, for example.
+		# we attempt to apply them but don't fail 
+		if [ "${x##-*}" = "opt" ]; then
+			optional=yes
+		fi
 		cat patches/$x | ( cd $ZENHOME; try patch -p3 -b -B $BACKUPDIR/ $extra_args )
-		if [ $? -gt $errval ]; then
+		if [ "$optional" = "no" ] && [ $? -gt $errval ]; then
 			fail=$x
+			if [ "$1" = "dry-run" ]; then
+				skip_apply="$skip_apply $x"
+			fi
 			break
+		fi
+		# add to our list to apply later.
+		if [ "$1" = "dry-run" ]; then
+			real_apply="$real_apply $x"
 		fi
 	done
 
@@ -75,6 +96,7 @@ real_patch_apply() {
 		echo "$SP" > $ZENHOME/ServicePacks/INSTALLED
 	fi
 }
+
 echo "Stopping Zenoss..."
 echo
 try zenoss stop
