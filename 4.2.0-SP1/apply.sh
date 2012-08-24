@@ -30,7 +30,7 @@ patch_apply() {
 	local fail=""
 	extra_args="$@"
 	for x in `cat patches/series`; do 
-		cat patches/$x | ( cd $ZENHOME; try patch -p3 -b -B $BACKUPDIR $extra_args )
+		cat patches/$x | ( cd $ZENHOME; try patch -p3 -b -B $BACKUPDIR/ $extra_args )
 		if [ $? -gt $errval ]; then
 			fail=$x
 			break
