@@ -1,0 +1,78 @@
+--- /opt/zenoss/Products/ZenModel/skins/zenmodel/maintenanceWindowDetail.pt	2012-08-01 18:24:41.000000000 -0400
++++ /opt/zenoss/Products/ZenModel/skins/zenmodel/maintenanceWindowDetail.pt	2012-08-23 08:22:20.731984975 -0400
+@@ -1,11 +1,9 @@
+ <tal:block metal:use-macro="here/templates/macros/page2">
+ <tal:block metal:fill-slot="contentPane">
+-<script type="text/javascript" src="/zport/portal_skins/zenmodel/datePicker.js">
+-</script>
+ 
+-<form method=post 
++<form method=post
+     tal:attributes="action string:${here/absolute_url_path}">
+-    <input type="hidden" name="zenScreenName" 
++    <input type="hidden" name="zenScreenName"
+         tal:attributes="value here/id" />
+ 
+ 
+@@ -27,7 +25,7 @@
+ 
+         <tal:block metal:fill-slot="zentablecontents">
+         <!-- BEGIN TABLE CONTENTS -->
+-            
++
+     <tr>
+         <td class="tableheader">Name</td>
+         <td class="tablevalues" tal:content="here/displayName"/>
+@@ -45,19 +43,33 @@
+     </tr>
+     <tr>
+         <td class="tableheader">Start</td>
+-        <td class="tablevalues" tal:condition="not:editable" 
++        <td class="tablevalues" tal:condition="not:editable"
+             tal:content="here/niceStartDateTime"/>
+         <td class="tablevalues" tal:condition="editable">
+-	    <input type="text" name="startDate" 
+-		   readonly="true"
+-		   tal:attributes="
++          <div id="datepicker">
++          </div>
++          <script tal:content="string:
++                               Ext.create('Ext.form.field.Date', {
++                               name: 'start_date',
++                               renderTo: 'datepicker',
++                               format: 'm/d/Y',
++                               value: '${here/niceStartDate}',
++                               listeners: {
++                                  change: function(field, newValue){
++                                     document.getElementById('startdate').value = field.getRawValue();
++                                  }
++                               }
++                               });
++                 "></script>
++             <input type="hidden" name="startDate" id="startDate"
++                readonly="true"
++                tal:attributes="
+                        value python:here.niceStartDate()"/>
+-	    <input type="button" value="select" 
+-		   onclick="displayDatePicker('startDate');"/>
++
+             <select name="startHours">
+                 <option tal:repeat="e python:range(24)"
+                         tal:content="python:'%02d'%e"
+-			tal:attributes="value e; 
++	                tal:attributes="value e;
+                                         selected python:e==here.niceStartHour()"/>
+ 	    </select>
+             <select name="startMinutes">
+@@ -132,11 +144,7 @@
+         </tal:block>
+         </tal:block>
+         </tal:block>
+-        
+ 
+ </form>
+-<script type="text/javascript">
+-    addDateRange('startDate', 'endDate');
+-</script>
+ </tal:block>
+ </tal:block>

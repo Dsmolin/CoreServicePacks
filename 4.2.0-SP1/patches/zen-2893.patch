@@ -1,0 +1,15 @@
+--- /opt/zenoss/Products/Zuul/facades/devicefacade.py	2012-08-01 18:24:40.000000000 -0400
++++ /opt/zenoss/Products/Zuul/facades/devicefacade.py	2012-08-23 08:03:10.785987971 -0400
+@@ -300,7 +300,11 @@
+         comps = imap(self._getObject, uids)
+         for comp in comps:
+             IInfo(comp).monitor = monitor
+-            self._root.componentSearch.catalog_object(comp, idxs=('monitored',))
++            # update the componentSearch catalog
++            comp.index_object(idxs=('monitored',))
++
++            # update the global catalog as well
++            notify(IndexingEvent(comp, idxs=('monitored',)))
+ 
+     def pushChanges(self, uids):
+         devs = imap(self._getObject, uids)
