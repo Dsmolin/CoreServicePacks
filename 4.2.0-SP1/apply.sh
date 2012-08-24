@@ -18,6 +18,10 @@ if [ "$USER" != "zenoss" ]; then
 	die "Current user is $USER. Please execute as the zenoss user."
 fi
 
+if [ "$(which patch 2>/dev/null)" = "" ]; then
+	die "Cannot find patch command. Please use 'yum install patch' as root to fix this and try again."
+fi
+
 TARGET_VERSION=4.2.0
 SP=4.2.0-SP1
 BACKUPDIR=$ZENHOME/ServicePacks/$SP
@@ -31,9 +35,10 @@ patch_apply() {
 	shift
 	local fail=""
 	local optional
+	local extra_args=""
 	if [ "$1" = "dry-run" ]; then
 		extra_args="--dry-run"
-		my_apply=`cat patches/series`
+		my_apply="$(cat patches/series)"
 	else
 		my_apply="$real_apply"
 	fi
@@ -45,12 +50,14 @@ patch_apply() {
 			optional=yes
 		fi
 		cat patches/$x | ( cd $ZENHOME; try patch -p3 -b -B $BACKUPDIR/ $extra_args )
-		if [ "$optional" = "no" ] && [ $? -gt $errval ]; then
-			fail=$x
+		if [ $? -gt $errval ]; then
 			if [ "$1" = "dry-run" ]; then
 				skip_apply="$skip_apply $x"
+				continue
+			else	
+				fail=$x
+				break
 			fi
-			break
 		fi
 		# add to our list to apply later.
 		if [ "$1" = "dry-run" ]; then
@@ -82,7 +89,7 @@ dry_run_patch_apply() {
 	echo
 	echo "Doing a dry-run patch application..."
 	echo
-	patch_apply 2 --dry-run || die "Dry-run failed. Maybe you are not running Zenoss ${TARGET_VERSION}?" 
+	patch_apply 2 dry-run || die "Dry-run failed. Maybe you are not running Zenoss ${TARGET_VERSION}?" 
 }
 
 real_patch_apply() {
